@@ -192,7 +192,7 @@ function EditLead()
     $lead->updated_at = date('Y-m-d H:i:s');
     $lead->save();
     
-    sendTelegramNotification("Lead Updated\n\nName: {$lead->name}\nPhone: {$lead->phone}\nStatus: {$lead->status}");
+   
     
     r2(U . 'plugin/leads', 's', 'Lead updated successfully');
     exit;
@@ -235,7 +235,7 @@ function DeleteLead()
   // Delete the lead
   $lead->delete();
   
-  sendTelegramNotification("Lead Deleted\n\nName: $name\nPhone: $phone");
+ 
   
   r2(U . 'plugin/leads', 's', 'Lead deleted successfully');
 }
@@ -277,7 +277,7 @@ function ConvertLead()
     $lead->updated_at = date('Y-m-d H:i:s');
     $lead->save();
     
-    sendTelegramNotification("Lead Converted to Customer\n\nName: {$lead->name}\nPhone: {$lead->phone}\nUsername: {$customer->username}");
+   
     
     r2(U . 'customers/view/' . $customer->id, 's', 'Lead converted to customer successfully');
     exit;
@@ -334,9 +334,7 @@ function ImportLeads()
       
       fclose($handle);
       
-      if ($leadCount > 0) {
-        sendTelegramNotification("Leads Import Complete\n\nImported $leadCount leads successfully");
-      }
+    
       
       if (!empty($errors)) {
         $errorMessage = implode("\n", $errors);
