@@ -1,6 +1,16 @@
 <?php
 require_once __DIR__ . '/../autoload/Package.php';
 
+// Initialize template engine
+global $ui;
+if (!isset($ui)) {
+    debug_log("Initializing template engine");
+    $ui = new \Smarty();
+    $ui->setTemplateDir(__DIR__ . '/templates');
+    $ui->setCompileDir(__DIR__ . '/templates_c');
+    $ui->setCacheDir(__DIR__ . '/cache');
+    $ui->setConfigDir(__DIR__ . '/configs');
+}
 
 register_menu("Leads", true, "Leads", 'BEFORE_SETTINGS', 'glyphicon glyphicon-comment', '', '', ['Admin', 'SuperAdmin']);
 
