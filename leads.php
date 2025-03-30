@@ -2,13 +2,15 @@
 require_once __DIR__ . '/../autoload/Package.php';
 
 
+
+///THis servers as the entry point for the main function in this file in this case this is the leads
 register_menu("Leads", true, "Leads", 'AFTER_SETTINGS', 'glyphicon glyphicon-comment', '', '', ['Admin', 'SuperAdmin']);
 
 
 // Default to viewing leads if no action specified
 
 
-
+//
 function AddLead()
 {
   global $ui;
@@ -50,14 +52,8 @@ function AddLead()
   }
   
   // Get all staff for assignment dropdown
-  $staffMembers = ORM::for_table('tbl_users')
-    ->where('user_type', 'Admin')
-    ->or_where('user_type', 'Sales')
-    ->select('id')
-    ->select('fullname')
-    ->find_many();
   
-  $ui->assign('staffMembers', $staffMembers);
+  
   $ui->display('lead-add.tpl');
 }
 
