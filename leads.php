@@ -5,6 +5,75 @@ require_once __DIR__ . '/../autoload/Package.php';
 register_menu("Leads", true, "Leads", 'AFTER_SETTINGS', 'glyphicon glyphicon-comment', '', '', ['Admin', 'SuperAdmin']);
 
 
+
+
+
+function ViewLeads()
+{
+  global $ui;
+  
+  // Handle search and filtering
+  $status = isset($_GET['status']) ? $_GET['status'] : '';
+  $source = isset($_GET['source']) ? $_GET['source'] : '';
+  $search = isset($_GET['search']) ? $_GET['search'] : '';
+  $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+  $limit = 20;
+  $offset = ($page - 1) * $limit;
+  
+  // Build query
+  $query = ORM::for_table('tbl_leads');
+  
+  if (!empty($status)) {
+    $query->where('status', $status);
+  }
+  
+  if (!empty($source)) {
+    $query->where('source', $source);
+  }
+  
+  if (!empty($search)) {
+    $query->where_raw('(name LIKE ? OR phone LIKE ? OR email LIKE ?)', 
+      array("%$search%", "%$search%", "%$search%"));
+  }
+  
+  // Count total for pagination
+  $totalLeads = $query->count();
+  
+  // Get the leads for current page
+  $leads = $query->order_by_desc('created_at')
+    ->offset($offset)
+    ->limit($limit)
+    ->find_many();
+  
+  // Get stats for dashboard
+  $totalActive = ORM::for_table('tbl_leads')
+    ->where('status', 'Active')
+    ->count();
+  
+  $totalConverted = ORM::for_table('tbl_leads')
+    ->where('status', 'Converted')
+    ->count();
+  
+  $totalPages = ceil($totalLeads / $limit);
+  
+  // Assign variables to template
+  $ui->assign('leads', $leads);
+  $ui->assign('totalLeads', $totalLeads);
+  $ui->assign('totalActive', $totalActive);
+  $ui->assign('totalConverted', $totalConverted);
+  $ui->assign('currentPage', $page);
+  $ui->assign('totalPages', $totalPages);
+  $ui->assign('status', $status);
+  $ui->assign('source', $source);
+  $ui->assign('search', $search);
+  
+  // Display template
+  $ui->display('leads.tpl');
+}
+
+
+
+
 $requestUri = $_SERVER['REQUEST_URI'];
 $queryString = parse_url($requestUri, PHP_URL_QUERY);
 $action = null;
@@ -97,68 +166,6 @@ function AddLead()
   $ui->display('lead-add.tpl');
 }
 
-function ViewLeads()
-{
-  global $ui;
-  
-  // Handle search and filtering
-  $status = isset($_GET['status']) ? $_GET['status'] : '';
-  $source = isset($_GET['source']) ? $_GET['source'] : '';
-  $search = isset($_GET['search']) ? $_GET['search'] : '';
-  $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-  $limit = 20;
-  $offset = ($page - 1) * $limit;
-  
-  // Build query
-  $query = ORM::for_table('tbl_leads');
-  
-  if (!empty($status)) {
-    $query->where('status', $status);
-  }
-  
-  if (!empty($source)) {
-    $query->where('source', $source);
-  }
-  
-  if (!empty($search)) {
-    $query->where_raw('(name LIKE ? OR phone LIKE ? OR email LIKE ?)', 
-      array("%$search%", "%$search%", "%$search%"));
-  }
-  
-  // Count total for pagination
-  $totalLeads = $query->count();
-  
-  // Get the leads for current page
-  $leads = $query->order_by_desc('created_at')
-    ->offset($offset)
-    ->limit($limit)
-    ->find_many();
-  
-  // Get stats for dashboard
-  $totalActive = ORM::for_table('tbl_leads')
-    ->where('status', 'Active')
-    ->count();
-  
-  $totalConverted = ORM::for_table('tbl_leads')
-    ->where('status', 'Converted')
-    ->count();
-  
-  $totalPages = ceil($totalLeads / $limit);
-  
-  // Assign variables to template
-  $ui->assign('leads', $leads);
-  $ui->assign('totalLeads', $totalLeads);
-  $ui->assign('totalActive', $totalActive);
-  $ui->assign('totalConverted', $totalConverted);
-  $ui->assign('currentPage', $page);
-  $ui->assign('totalPages', $totalPages);
-  $ui->assign('status', $status);
-  $ui->assign('source', $source);
-  $ui->assign('search', $search);
-  
-  // Display template
-  $ui->display('leads.tpl');
-}
 
 function EditLead()
 {
