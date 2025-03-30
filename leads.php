@@ -6,6 +6,40 @@ register_menu("Leads", true, "Leads", 'AFTER_SETTINGS', 'glyphicon glyphicon-com
 
 
 
+$logFile = __DIR__ . '/debug.log';
+function debug_log($message) {
+    global $logFile;
+    $timestamp = date('Y-m-d H:i:s');
+    file_put_contents($logFile, "[$timestamp] $message\n", FILE_APPEND);
+}
+
+
+debug_log("Script started");
+
+debug_log("Attempting to include Package.php from: " . __DIR__ . '/../autoload/Package.php');
+if (file_exists(__DIR__ . '/../autoload/Package.php')) {
+    debug_log("Package.php file exists");
+} else {
+    debug_log("ERROR: Package.php file NOT found");
+}
+
+
+debug_log("Checking for required functions:");
+debug_log("_post function exists: " . (function_exists('_post') ? 'Yes' : 'No'));
+debug_log("r2 function exists: " . (function_exists('r2') ? 'Yes' : 'No'));
+debug_log("U constant is defined: " . (defined('U') ? 'Yes' : 'No'));
+
+
+debug_log("Checking ORM database connection");
+try {
+    $db = ORM::get_db();
+    debug_log("Database connection successful");
+} catch (Exception $e) {
+    debug_log("Database connection failed: " . $e->getMessage());
+}
+
+
+debug_log("About to process request URI: " . $_SERVER['REQUEST_URI']);
 
 
 function ViewLeads()
