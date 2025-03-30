@@ -5,39 +5,6 @@ require_once __DIR__ . '/../autoload/Package.php';
 register_menu("Leads", true, "Leads", 'AFTER_SETTINGS', 'glyphicon glyphicon-comment', '', '', ['Admin', 'SuperAdmin']);
 
 
-function Leads() {
-    $requestUri = $_SERVER['REQUEST_URI'];
-    $queryString = parse_url($requestUri, PHP_URL_QUERY);
-    $action = null;
-
-    if ($queryString) {
-        parse_str($queryString, $queryParameters);
-
-        if (isset($queryParameters['action'])) {
-            $action = $queryParameters['action'];
-
-            if ($action === "add") {
-                AddLead();
-            } elseif ($action === "view") {
-                ViewLeads();
-            } elseif ($action === "edit") {
-                EditLead();
-            } elseif ($action === "delete") {
-                DeleteLead();
-            } elseif ($action === "convert") {
-                ConvertLead();
-            } elseif ($action === "import") {
-                ImportLeads();
-            } elseif ($action === "export") {
-                ExportLeads();
-            } else {
-                ViewLeads();
-            }
-            exit;
-        }
-    }
-}
-
 // Default to viewing leads if no action specified
 
 
@@ -458,3 +425,40 @@ function createLeadsTableIfNotExists()
 
 // Create tables when the script is loaded
 createLeadsTableIfNotExists();
+
+function Leads() {
+    $requestUri = $_SERVER['REQUEST_URI'];
+    $queryString = parse_url($requestUri, PHP_URL_QUERY);
+    $action = null;
+
+    if ($queryString) {
+        parse_str($queryString, $queryParameters);
+        $action = $queryParameters['action'] ?? null;
+    }
+
+    switch ($action) {
+        case "add":
+            AddLead();
+            break;
+        case "edit":
+            EditLead();
+            break;
+        case "delete":
+            DeleteLead();
+            break;
+        case "convert":
+            ConvertLead();
+            break;
+        case "import":
+            ImportLeads();
+            break;
+        case "export":
+            ExportLeads();
+            break;
+        default:
+            ViewLeads(); // Default action if none is provided
+            break;
+    }
+    exit;
+}
+
