@@ -364,7 +364,7 @@ if ($queryString) {
 
 // Default to viewing leads if no action specified
 ViewLeads();
-exit;
+
 
 
 function AddLead()
