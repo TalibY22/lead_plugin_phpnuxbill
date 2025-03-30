@@ -1,16 +1,6 @@
 <?php
 require_once __DIR__ . '/../autoload/Package.php';
 
-// Initialize template engine
-global $ui;
-if (!isset($ui)) {
-    debug_log("Initializing template engine");
-    $ui = new \Smarty();
-    $ui->setTemplateDir(__DIR__ . '/templates');
-    $ui->setCompileDir(__DIR__ . '/templates_c');
-    $ui->setCacheDir(__DIR__ . '/cache');
-    $ui->setConfigDir(__DIR__ . '/configs');
-}
 
 register_menu("Leads", true, "Leads", 'BEFORE_SETTINGS', 'glyphicon glyphicon-comment', '', '', ['Admin', 'SuperAdmin']);
 
@@ -25,33 +15,6 @@ function debug_log($message) {
 
 
 debug_log("Script started");
-
-// Log all required functions and constants
-debug_log("Checking for required functions and constants:");
-debug_log("register_menu function exists: " . (function_exists('register_menu') ? 'Yes' : 'No'));
-debug_log("_post function exists: " . (function_exists('_post') ? 'Yes' : 'No'));
-debug_log("r2 function exists: " . (function_exists('r2') ? 'Yes' : 'No'));
-debug_log("U constant is defined: " . (defined('U') ? 'Yes' : 'No'));
-debug_log("ORM class exists: " . (class_exists('ORM') ? 'Yes' : 'No'));
-debug_log("$ui variable exists: " . (isset($ui) ? 'Yes' : 'No'));
-
-// Log PHP version and extensions
-debug_log("PHP Version: " . PHP_VERSION);
-debug_log("Loaded Extensions: " . implode(", ", get_loaded_extensions()));
-
-// Log file paths
-debug_log("Current Directory: " . __DIR__);
-debug_log("Package.php Path: " . __DIR__ . '/../autoload/Package.php');
-debug_log("Debug Log Path: " . $logFile);
-
-// Check if debug log is writable
-debug_log("Debug log is writable: " . (is_writable($logFile) ? 'Yes' : 'No'));
-
-// Log request information
-debug_log("Request Method: " . $_SERVER['REQUEST_METHOD']);
-debug_log("Request URI: " . $_SERVER['REQUEST_URI']);
-debug_log("Query String: " . (isset($_SERVER['QUERY_STRING']) ? $_SERVER['QUERY_STRING'] : 'None'));
-
 
 debug_log("Attempting to include Package.php from: " . __DIR__ . '/../autoload/Package.php');
 if (file_exists(__DIR__ . '/../autoload/Package.php')) {
@@ -81,17 +44,12 @@ debug_log("About to process request URI: " . $_SERVER['REQUEST_URI']);
 
 function ViewLeads()
 {
-  debug_log("ViewLeads function started");
   global $ui;
-  
-  if (!isset($ui)) {
-    debug_log("ERROR: $ui variable is not set");
-    return;
-  }
-  
-  debug_log("Checking required functions in ViewLeads:");
-  debug_log("ORM::for_table exists: " . (method_exists('ORM', 'for_table') ? 'Yes' : 'No'));
-  debug_log("ORM::get_db exists: " . (method_exists('ORM', 'get_db') ? 'Yes' : 'No'));
+  _admin();
+  $ui->assign('_title', 'Leads Management');
+  $ui->assign('_system_menu', 'plugin/leads');
+  $admin = Admin::_info();
+  $ui->assign('_admin', $admin);
   
   // Handle search and filtering
   $status = isset($_GET['status']) ? $_GET['status'] : '';
@@ -198,6 +156,11 @@ exit;
 function AddLead()
 {
   global $ui;
+  _admin();
+  $ui->assign('_title', 'Add New Lead');
+  $ui->assign('_system_menu', 'plugin/leads');
+  $admin = Admin::_info();
+  $ui->assign('_admin', $admin);
   
   if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validate inputs
@@ -251,6 +214,11 @@ function AddLead()
 function EditLead()
 {
   global $ui;
+  _admin();
+  $ui->assign('_title', 'Edit Lead');
+  $ui->assign('_system_menu', 'plugin/leads');
+  $admin = Admin::_info();
+  $ui->assign('_admin', $admin);
   
   $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
   
@@ -301,6 +269,7 @@ function EditLead()
 
 function DeleteLead()
 {
+  _admin();
   $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
   
   if ($id <= 0) {
@@ -330,6 +299,13 @@ function DeleteLead()
 
 function ConvertLead()
 {
+  global $ui;
+  _admin();
+  $ui->assign('_title', 'Convert Lead');
+  $ui->assign('_system_menu', 'plugin/leads');
+  $admin = Admin::_info();
+  $ui->assign('_admin', $admin);
+  
   $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
   
   if ($id <= 0) {
@@ -371,7 +347,6 @@ function ConvertLead()
     exit;
   }
   
-  global $ui;
   $ui->assign('lead', $lead);
   $ui->display('lead-convert.tpl');
 }
@@ -379,6 +354,11 @@ function ConvertLead()
 function ImportLeads()
 {
   global $ui;
+  _admin();
+  $ui->assign('_title', 'Import Leads');
+  $ui->assign('_system_menu', 'plugin/leads');
+  $admin = Admin::_info();
+  $ui->assign('_admin', $admin);
   
   if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
     if ($_FILES['csv_file']['error'] > 0) {
@@ -443,6 +423,7 @@ function ImportLeads()
 
 function ExportLeads()
 {
+  _admin();
   // Get filter parameters
   $status = isset($_GET['status']) ? $_GET['status'] : '';
   $source = isset($_GET['source']) ? $_GET['source'] : '';
