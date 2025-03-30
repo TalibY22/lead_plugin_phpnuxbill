@@ -203,6 +203,7 @@ try {
 debug_log("About to process request URI: " . $_SERVER['REQUEST_URI']);
 
 
+// Define the functions that the framework will call
 function ViewLeads()
 {
   global $ui;
@@ -327,43 +328,6 @@ function ViewLeads()
 
 
 
-$requestUri = $_SERVER['REQUEST_URI'];
-$queryString = parse_url($requestUri, PHP_URL_QUERY);
-$action = null;
-if ($queryString) {
-  parse_str($queryString, $queryParameters);
-  if (isset($queryParameters['action'])) {
-    $action = $queryParameters['action'];
-    if ($action === "add") {
-      AddLead();
-      exit;
-    } elseif ($action === "view") {
-      ViewLeads();
-      exit;
-    } elseif ($action === "edit") {
-      EditLead();
-      exit;
-    } elseif ($action === "delete") {
-      DeleteLead();
-      exit;
-    } elseif ($action === "convert") {
-      ConvertLead();
-      exit;
-    } elseif ($action === "import") {
-      ImportLeads();
-      exit;
-    } elseif ($action === "export") {
-      ExportLeads();
-      exit;
-    } else {
-      echo "Unknown action";
-      exit;
-    }
-  }
-}
-
-// Default to viewing leads if no action specified
-ViewLeads();
 
 
 
