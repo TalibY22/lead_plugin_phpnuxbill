@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../autoload/Package.php';
+
 
 use ORM;
 use Admin;
@@ -269,6 +269,9 @@ function ViewLeads()
     
     log_debug("Dashboard stats - Active: $totalActive, Converted: $totalConverted, Total Pages: $totalPages");
     
+    // Log template variables before assignment
+    log_debug("Preparing template variables");
+    
     // Assign variables to template
     $ui->assign('leads', $leads);
     $ui->assign('totalLeads', $totalLeads);
@@ -280,12 +283,42 @@ function ViewLeads()
     $ui->assign('source', $source);
     $ui->assign('search', $search);
     
-    log_info("Successfully loaded leads view");
+    // Log template file existence
+    $templateFile = 'leads.tpl';
+    $templatePath = __DIR__ . '/ui/' . $templateFile;
+    log_debug("Checking template file: $templatePath");
+    
+    if (!file_exists($templatePath)) {
+        log_error("Template file not found: $templatePath");
+        throw new Exception("Template file not found: $templateFile");
+    }
+    
+    // Log template variables
+    log_debug("Template variables assigned:");
+    log_debug("- leads count: " . count($leads));
+    log_debug("- totalLeads: $totalLeads");
+    log_debug("- totalActive: $totalActive");
+    log_debug("- totalConverted: $totalConverted");
+    log_debug("- currentPage: $page");
+    log_debug("- totalPages: $totalPages");
+    log_debug("- status: $status");
+    log_debug("- source: $source");
+    log_debug("- search: $search");
+    
+    log_info("Attempting to display template: $templateFile");
     
     // Display template
-    $ui->display('leads.tpl');
+    try {
+        $ui->display($templateFile);
+        log_info("Template displayed successfully");
+    } catch (Exception $e) {
+        log_error("Failed to display template: " . $e->getMessage());
+        throw $e;
+    }
+    
   } catch (Exception $e) {
     log_error("Error in ViewLeads: " . $e->getMessage());
+    log_error("Stack trace: " . $e->getTraceAsString());
     r2(U . 'plugin/leads', 'e', 'An error occurred while loading leads. Please check the logs.');
     exit;
   }
