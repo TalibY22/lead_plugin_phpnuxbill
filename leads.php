@@ -1,8 +1,169 @@
 <?php
 require_once __DIR__ . '/../autoload/Package.php';
 
+use ORM;
+use Admin;
+use Http;
 
-register_menu("Leads", true, "Leads", 'AFTER_SETTINGS', 'glyphicon glyphicon-comment', '', '', ['Admin', 'SuperAdmin']);
+// Setup logging
+$logFile = __DIR__ . '/logs/leads.log';
+if (!file_exists(dirname($logFile))) {
+    mkdir(dirname($logFile), 0755, true);
+}
+
+function log_message($message, $level = 'INFO') {
+    global $logFile;
+    $timestamp = date('Y-m-d H:i:s');
+    $logMessage = "[$timestamp][$level] $message" . PHP_EOL;
+    file_put_contents($logFile, $logMessage, FILE_APPEND);
+}
+
+function log_error($message) {
+    log_message($message, 'ERROR');
+}
+
+function log_info($message) {
+    log_message($message, 'INFO');
+}
+
+function log_debug($message) {
+    log_message($message, 'DEBUG');
+}
+
+// Create database table first
+function createLeadsTableIfNotExists() 
+{
+    try {
+        log_info("Checking/creating leads table...");
+        $db = ORM::get_db();
+        
+        // Create the leads table
+        $tableCheckQuery = "CREATE TABLE IF NOT EXISTS tbl_leads (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            phone VARCHAR(50) NOT NULL,
+            email VARCHAR(255),
+            address TEXT,
+            source VARCHAR(100) DEFAULT 'Direct',
+            status VARCHAR(50) DEFAULT 'New',
+            notes TEXT,
+            assigned_to INT DEFAULT 0,
+            customer_id INT DEFAULT 0,
+            converted_at DATETIME NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            INDEX (status),
+            INDEX (source),
+            INDEX (assigned_to),
+            INDEX (customer_id)
+        )";
+        
+        $db->exec($tableCheckQuery);
+        log_info("Leads table created/verified successfully");
+        
+        // Check if the table exists and has data
+        $countQuery = "SELECT COUNT(*) as count FROM tbl_leads";
+        $result = $db->query($countQuery);
+        $row = $result->fetch(\PDO::FETCH_ASSOC);
+        
+        if ($row['count'] == 0) {
+            log_info("Initializing default configurations");
+            // Add default configurations
+            $configs = [
+                ['lead_statuses', 'New,Active,Contacted,Qualified,Proposal,Negotiation,Converted,Lost'],
+                ['lead_sources', 'Direct,Referral,Website,Phone,Email,Social Media,Advertisement,Event,Other']
+            ];
+            
+            foreach ($configs as $config) {
+                $existing = ORM::for_table('tbl_appconfig')
+                    ->where('setting', $config[0])
+                    ->find_one();
+                    
+                if (!$existing) {
+                    $newConfig = ORM::for_table('tbl_appconfig')->create();
+                    $newConfig->setting = $config[0];
+                    $newConfig->value = $config[1];
+                    $newConfig->save();
+                    log_info("Added default configuration: {$config[0]}");
+                }
+            }
+        }
+        
+        return true;
+    } catch (Exception $e) {
+        log_error("Failed to create/verify leads table: " . $e->getMessage());
+        return false;
+    }
+}
+
+// Create tables immediately
+if (!createLeadsTableIfNotExists()) {
+    die("Failed to initialize leads plugin. Please check the logs for details.");
+}
+
+// Error handler
+function handleError($errno, $errstr, $errfile, $errline) {
+    log_error("Error [$errno]: $errstr in $errfile on line $errline");
+    return true;
+}
+
+// Exception handler
+function handleException($exception) {
+    log_error("Uncaught Exception: " . $exception->getMessage() . 
+               " in " . $exception->getFile() . 
+               " on line " . $exception->getLine());
+    return true;
+}
+
+set_error_handler('handleError');
+set_exception_handler('handleException');
+
+// Function to check required dependencies
+function checkDependencies() {
+    $required = [
+        'register_menu' => 'function',
+        '_admin' => 'function',
+        '_post' => 'function',
+        'r2' => 'function',
+        'U' => 'constant',
+        'ORM' => 'class'
+    ];
+
+    foreach ($required as $name => $type) {
+        if ($type === 'function' && !function_exists($name)) {
+            log_error("Required function '$name' is not available");
+            return false;
+        } elseif ($type === 'constant' && !defined($name)) {
+            log_error("Required constant '$name' is not defined");
+            return false;
+        } elseif ($type === 'class' && !class_exists($name)) {
+            log_error("Required class '$name' is not available");
+            return false;
+        }
+    }
+    return true;
+}
+
+// Check dependencies before proceeding
+if (!checkDependencies()) {
+    die("Required dependencies are missing. Please check the logs for details.");
+}
+
+// Register menu with proper error handling
+try {
+    register_menu("Leads", true, "Leads", 'AFTER_SETTINGS', 'glyphicon glyphicon-comment', '', '', ['Admin', 'SuperAdmin']);
+    log_info("Menu registration successful");
+} catch (Exception $e) {
+    log_error("Failed to register menu: " . $e->getMessage());
+}
+
+// Check database connection
+try {
+    $db = ORM::get_db();
+    log_info("Database connection successful");
+} catch (Exception $e) {
+    log_error("Database connection failed: " . $e->getMessage());
+}
 
 
 
@@ -45,69 +206,89 @@ debug_log("About to process request URI: " . $_SERVER['REQUEST_URI']);
 function ViewLeads()
 {
   global $ui;
-  _admin();
-  $ui->assign('_title', 'Leads Management');
-  $ui->assign('_system_menu', 'plugin/leads');
-  $admin = Admin::_info();
-  $ui->assign('_admin', $admin);
   
-  // Handle search and filtering
-  $status = isset($_GET['status']) ? $_GET['status'] : '';
-  $source = isset($_GET['source']) ? $_GET['source'] : '';
-  $search = isset($_GET['search']) ? $_GET['search'] : '';
-  $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-  $limit = 20;
-  $offset = ($page - 1) * $limit;
-  
-  // Build query
-  $query = ORM::for_table('tbl_leads');
-  
-  if (!empty($status)) {
-    $query->where('status', $status);
+  try {
+    log_debug("Starting ViewLeads function");
+    _admin();
+    $ui->assign('_title', 'Leads Management');
+    $ui->assign('_system_menu', 'plugin/leads');
+    $admin = Admin::_info();
+    $ui->assign('_admin', $admin);
+    
+    // Handle search and filtering
+    $status = isset($_GET['status']) ? $_GET['status'] : '';
+    $source = isset($_GET['source']) ? $_GET['source'] : '';
+    $search = isset($_GET['search']) ? $_GET['search'] : '';
+    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+    $limit = 20;
+    $offset = ($page - 1) * $limit;
+    
+    log_debug("Viewing leads with filters - Status: $status, Source: $source, Search: $search, Page: $page");
+    
+    // Build query
+    $query = ORM::for_table('tbl_leads');
+    
+    if (!empty($status)) {
+      $query->where('status', $status);
+      log_debug("Filtering by status: $status");
+    }
+    
+    if (!empty($source)) {
+      $query->where('source', $source);
+      log_debug("Filtering by source: $source");
+    }
+    
+    if (!empty($search)) {
+      $query->where_raw('(name LIKE ? OR phone LIKE ? OR email LIKE ?)', 
+        array("%$search%", "%$search%", "%$search%"));
+      log_debug("Filtering by search term: $search");
+    }
+    
+    // Count total for pagination
+    $totalLeads = $query->count();
+    log_debug("Total leads found: $totalLeads");
+    
+    // Get the leads for current page
+    $leads = $query->order_by_desc('created_at')
+      ->offset($offset)
+      ->limit($limit)
+      ->find_many();
+    
+    log_debug("Retrieved " . count($leads) . " leads for current page");
+    
+    // Get stats for dashboard
+    $totalActive = ORM::for_table('tbl_leads')
+      ->where('status', 'Active')
+      ->count();
+    
+    $totalConverted = ORM::for_table('tbl_leads')
+      ->where('status', 'Converted')
+      ->count();
+    
+    $totalPages = ceil($totalLeads / $limit);
+    
+    log_debug("Dashboard stats - Active: $totalActive, Converted: $totalConverted, Total Pages: $totalPages");
+    
+    // Assign variables to template
+    $ui->assign('leads', $leads);
+    $ui->assign('totalLeads', $totalLeads);
+    $ui->assign('totalActive', $totalActive);
+    $ui->assign('totalConverted', $totalConverted);
+    $ui->assign('currentPage', $page);
+    $ui->assign('totalPages', $totalPages);
+    $ui->assign('status', $status);
+    $ui->assign('source', $source);
+    $ui->assign('search', $search);
+    
+    log_info("Successfully loaded leads view");
+    
+    // Display template
+    $ui->display('leads.tpl');
+  } catch (Exception $e) {
+    log_error("Error in ViewLeads: " . $e->getMessage());
+    r2(U . 'plugin/leads', 'e', 'An error occurred while loading leads. Please check the logs.');
+    exit;
   }
-  
-  if (!empty($source)) {
-    $query->where('source', $source);
-  }
-  
-  if (!empty($search)) {
-    $query->where_raw('(name LIKE ? OR phone LIKE ? OR email LIKE ?)', 
-      array("%$search%", "%$search%", "%$search%"));
-  }
-  
-  // Count total for pagination
-  $totalLeads = $query->count();
-  
-  // Get the leads for current page
-  $leads = $query->order_by_desc('created_at')
-    ->offset($offset)
-    ->limit($limit)
-    ->find_many();
-  
-  // Get stats for dashboard
-  $totalActive = ORM::for_table('tbl_leads')
-    ->where('status', 'Active')
-    ->count();
-  
-  $totalConverted = ORM::for_table('tbl_leads')
-    ->where('status', 'Converted')
-    ->count();
-  
-  $totalPages = ceil($totalLeads / $limit);
-  
-  // Assign variables to template
-  $ui->assign('leads', $leads);
-  $ui->assign('totalLeads', $totalLeads);
-  $ui->assign('totalActive', $totalActive);
-  $ui->assign('totalConverted', $totalConverted);
-  $ui->assign('currentPage', $page);
-  $ui->assign('totalPages', $totalPages);
-  $ui->assign('status', $status);
-  $ui->assign('source', $source);
-  $ui->assign('search', $search);
-  
-  // Display template
-  $ui->display('leads.tpl');
 }
 
 
@@ -156,58 +337,86 @@ exit;
 function AddLead()
 {
   global $ui;
-  _admin();
-  $ui->assign('_title', 'Add New Lead');
-  $ui->assign('_system_menu', 'plugin/leads');
-  $admin = Admin::_info();
-  $ui->assign('_admin', $admin);
   
-  if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Validate inputs
-    $name = _post('name');
-    $phone = _post('phone');
-    $email = _post('email');
-    $address = _post('address');
-    $source = _post('source');
-    $status = _post('status');
-    $notes = _post('notes');
-    $assigned_to = _post('assigned_to');
+  try {
+    log_debug("Starting AddLead function");
+    _admin();
+    $ui->assign('_title', 'Add New Lead');
+    $ui->assign('_system_menu', 'plugin/leads');
+    $admin = Admin::_info();
+    $ui->assign('_admin', $admin);
     
-    if (empty($name) || empty($phone)) {
-      r2(U . 'plugin/leads&action=add', 'e', 'Name and Phone are required fields');
-      exit;
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+      log_debug("Processing new lead submission");
+      
+      // Validate inputs
+      $name = _post('name');
+      $phone = _post('phone');
+      $email = _post('email');
+      $address = _post('address');
+      $source = _post('source');
+      $status = _post('status');
+      $notes = _post('notes');
+      $assigned_to = _post('assigned_to');
+      
+      // Log input data (excluding sensitive info)
+      log_debug("Received lead data - Name: $name, Phone: $phone, Source: $source, Status: $status");
+      
+      if (empty($name) || empty($phone)) {
+        log_error("Validation failed - Missing required fields");
+        r2(U . 'plugin/leads&action=add', 'e', 'Name and Phone are required fields');
+        exit;
+      }
+      
+      // Validate email if provided
+      if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        log_error("Validation failed - Invalid email format: $email");
+        r2(U . 'plugin/leads&action=add', 'e', 'Invalid email format');
+        exit;
+      }
+      
+      // Create the lead
+      $lead = ORM::for_table('tbl_leads')->create();
+      $lead->name = $name;
+      $lead->phone = $phone;
+      $lead->email = $email;
+      $lead->address = $address;
+      $lead->source = $source;
+      $lead->status = $status;
+      $lead->notes = $notes;
+      $lead->assigned_to = $assigned_to;
+      $lead->created_at = date('Y-m-d H:i:s');
+      $lead->updated_at = date('Y-m-d H:i:s');
+      
+      try {
+        $lead->save();
+        log_info("Successfully created new lead with ID: " . $lead->id);
+        r2(U . 'plugin/leads', 's', 'Lead added successfully');
+        exit;
+      } catch (Exception $e) {
+        log_error("Failed to save lead: " . $e->getMessage());
+        r2(U . 'plugin/leads&action=add', 'e', 'Failed to save lead. Please try again.');
+        exit;
+      }
     }
     
-    // Create the lead
-    $lead = ORM::for_table('tbl_leads')->create();
-    $lead->name = $name;
-    $lead->phone = $phone;
-    $lead->email = $email;
-    $lead->address = $address;
-    $lead->source = $source;
-    $lead->status = $status;
-    $lead->notes = $notes;
-    $lead->assigned_to = $assigned_to;
-    $lead->created_at = date('Y-m-d H:i:s');
-    $lead->updated_at = date('Y-m-d H:i:s');
-    $lead->save();
+    // Get all staff for assignment dropdown
+    $staffMembers = ORM::for_table('tbl_users')
+      ->where('user_type', 'Admin')
+      ->or_where('user_type', 'Sales')
+      ->select('id')
+      ->select('fullname')
+      ->find_many();
     
+    log_debug("Loading add lead form with " . count($staffMembers) . " staff members");
     
-    
-    r2(U . 'plugin/leads', 's', 'Lead added successfully');
+    $ui->assign('staffMembers', $staffMembers);
+    $ui->display('lead-add.tpl');
+  } catch (Exception $e) {
+    log_error("Error in AddLead: " . $e->getMessage());
+    r2(U . 'plugin/leads', 'e', 'An error occurred while processing your request. Please check the logs.');
     exit;
   }
-  
-  // Get all staff for assignment dropdown
-  $staffMembers = ORM::for_table('tbl_users')
-    ->where('user_type', 'Admin')
-    ->or_where('user_type', 'Sales')
-    ->select('id')
-    ->select('fullname')
-    ->find_many();
-  
-  $ui->assign('staffMembers', $staffMembers);
-  $ui->display('lead-add.tpl');
 }
 
 
@@ -474,57 +683,3 @@ function ExportLeads()
   fclose($output);
   exit;
 }
-
-function createLeadsTableIfNotExists() 
-{
-  $db = ORM::get_db();
-  $tableCheckQuery = "CREATE TABLE IF NOT EXISTS tbl_leads (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    phone VARCHAR(50) NOT NULL,
-    email VARCHAR(255),
-    address TEXT,
-    source VARCHAR(100) DEFAULT 'Direct',
-    status VARCHAR(50) DEFAULT 'New',
-    notes TEXT,
-    assigned_to INT DEFAULT 0,
-    customer_id INT DEFAULT 0,
-    converted_at DATETIME NULL,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL,
-    INDEX (status),
-    INDEX (source),
-    INDEX (assigned_to),
-    INDEX (customer_id)
-  )";
-  $db->exec($tableCheckQuery);
-  
-  // Check if the table exixst or not 
-  $countQuery = "SELECT COUNT(*) as count FROM tbl_leads";
-  $result = $db->query($countQuery);
-  $row = $result->fetch(\PDO::FETCH_ASSOC);
-  
-  if ($row['count'] == 0) {
-    // Yah this will be  issue 
-    $configs = [
-      ['lead_statuses', 'New,Active,Contacted,Qualified,Proposal,Negotiation,Converted,Lost'],
-      ['lead_sources', 'Direct,Referral,Website,Phone,Email,Social Media,Advertisement,Event,Other']
-    ];
-    
-    foreach ($configs as $config) {
-      $existing = ORM::for_table('tbl_appconfig')
-        ->where('setting', $config[0])
-        ->find_one();
-        
-      if (!$existing) {
-        $newConfig = ORM::for_table('tbl_appconfig')->create();
-        $newConfig->setting = $config[0];
-        $newConfig->value = $config[1];
-        $newConfig->save();
-      }
-    }
-  }
-}
-
-// Create tables when the script is loaded
-createLeadsTableIfNotExists();
