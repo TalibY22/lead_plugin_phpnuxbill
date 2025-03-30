@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../autoload/Package.php';
 
 
-register_menu("Leads", true, "Leads", 'BEFORE_SETTINGS', 'glyphicon glyphicon-comment', '', '', ['Admin', 'SuperAdmin']);
+register_menu("Leads", true, "Leads", 'AFTER_SETTINGS', 'glyphicon glyphicon-comment', '', '', ['Admin', 'SuperAdmin']);
 
 
 
