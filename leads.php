@@ -10,7 +10,7 @@ register_menu("Leads", true, "Leads", 'AFTER_SETTINGS', 'glyphicon glyphicon-com
 // Default to viewing leads if no action specified
 
 
-//
+//Add new lead
 function AddLead()
 {
   global $ui;
@@ -47,6 +47,7 @@ function AddLead()
     
     
     
+    //R2 redirects the user similiars to laraverd redirect 
     r2(U . 'plugin/leads', 's', 'Lead added successfully');
     exit;
   }
@@ -57,6 +58,8 @@ function AddLead()
   $ui->display('lead-add.tpl');
 }
 
+
+//View all the leads 
 function ViewLeads()
 {
   global $ui;
@@ -120,6 +123,9 @@ function ViewLeads()
   $ui->display('leads.tpl');
 }
 
+
+
+//Edit the leads 
 function EditLead()
 {
   global $ui;
@@ -152,7 +158,7 @@ function EditLead()
     $lead->updated_at = date('Y-m-d H:i:s');
     $lead->save();
     
-    sendTelegramNotification("Lead Updated\n\nName: {$lead->name}\nPhone: {$lead->phone}\nStatus: {$lead->status}");
+    
     
     r2(U . 'plugin/leads', 's', 'Lead updated successfully');
     exit;
@@ -161,7 +167,6 @@ function EditLead()
   // Get all staff for assignment dropdown
   $staffMembers = ORM::for_table('tbl_users')
     ->where('user_type', 'Admin')
-    ->or_where('user_type', 'Sales')
     ->select('id')
     ->select('fullname')
     ->find_many();
@@ -195,11 +200,13 @@ function DeleteLead()
   // Delete the lead
   $lead->delete();
   
-  sendTelegramNotification("Lead Deleted\n\nName: $name\nPhone: $phone");
+  
   
   r2(U . 'plugin/leads', 's', 'Lead deleted successfully');
 }
 
+
+//Convert leads to customers this is not working is very buggy
 function ConvertLead()
 {
   $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -237,7 +244,7 @@ function ConvertLead()
     $lead->updated_at = date('Y-m-d H:i:s');
     $lead->save();
     
-    sendTelegramNotification("Lead Converted to Customer\n\nName: {$lead->name}\nPhone: {$lead->phone}\nUsername: {$customer->username}");
+   
     
     r2(U . 'customers/view/' . $customer->id, 's', 'Lead converted to customer successfully');
     exit;
@@ -248,6 +255,9 @@ function ConvertLead()
   $ui->display('lead-convert.tpl');
 }
 
+
+
+//Importleads 
 function ImportLeads()
 {
   global $ui;
@@ -294,9 +304,7 @@ function ImportLeads()
       
       fclose($handle);
       
-      if ($leadCount > 0) {
-        sendTelegramNotification("Leads Import Complete\n\nImported $leadCount leads successfully");
-      }
+      
       
       if (!empty($errors)) {
         $errorMessage = implode("\n", $errors);
