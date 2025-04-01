@@ -431,14 +431,8 @@ function createLeadsTableIfNotExists()
 createLeadsTableIfNotExists();
 
 function Leads() {
-    $requestUri = $_SERVER['REQUEST_URI'];
-    $queryString = parse_url($requestUri, PHP_URL_QUERY);
-    $action = null;
-
-    if ($queryString) {
-        parse_str($queryString, $queryParameters);
-        $action = $queryParameters['action'] ?? null;
-    }
+    
+    $action = isset($_GET['action']) ? $_GET['action'] : null;;
 
     switch ($action) {
         case "add":

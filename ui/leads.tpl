@@ -106,7 +106,7 @@
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>{$_L['Name']}</th>
+                                    <th>{$_L</th>
                                     <th>{$_L['Phone']}</th>
                                     <th>{$_L['Email']}</th>
                                     <th>{$_L['Source']}</th>
